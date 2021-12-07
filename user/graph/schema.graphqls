@@ -1,0 +1,17 @@
+type Service {
+  name: String!
+  version: String!
+  schema: String!
+}
+
+type User {
+  id: ID!
+  name: String!
+}
+
+type Query {
+  # 最初のサービス登録の際にリクエストされる
+  service: Service!
+
+  users: [User!]!
+}

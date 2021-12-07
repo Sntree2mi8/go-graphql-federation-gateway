@@ -1,0 +1,6 @@
+{
+  "services": [
+    "http://localhost:4000/query",
+    "http://localhost:4001/query"
+  ]
+}
