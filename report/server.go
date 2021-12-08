@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"github.com/99designs/gqlgen/graphql"
 	"log"
 	"net/http"
 	"os"
@@ -18,7 +20,16 @@ func main() {
 		port = defaultPort
 	}
 
-	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{}}))
+	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{
+		Resolvers: &graph.Resolver{},
+		Directives: struct {
+			Boundary func(ctx context.Context, obj interface{}, next graphql.Resolver) (res interface{}, err error)
+		}{
+			Boundary: func(ctx context.Context, obj interface{}, next graphql.Resolver) (res interface{}, err error) {
+				return next(ctx)
+			},
+		},
+	}))
 
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	http.Handle("/query", srv)

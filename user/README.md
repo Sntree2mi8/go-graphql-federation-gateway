@@ -1,3 +1,4 @@
-## やったこと
-https://github.com/99designs/gqlgen  
-公式のquickStartに従っただけ...
+# Run
+```
+PORT=4000 go run server.go
+```

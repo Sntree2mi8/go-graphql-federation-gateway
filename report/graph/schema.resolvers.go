@@ -11,7 +11,7 @@ import (
 	"github.com/vektah/gqlparser/v2/formatter"
 )
 
-func (r *queryResolver) Service(_ context.Context) (*model.Service, error) {
+func (r *queryResolver) Service(ctx context.Context) (*model.Service, error) {
 	s := new(strings.Builder)
 	f := formatter.NewFormatter(s)
 	// parsedSchema is in the generated code
@@ -25,7 +25,7 @@ func (r *queryResolver) Service(_ context.Context) (*model.Service, error) {
 	return &service, nil
 }
 
-func (r *queryResolver) Reports(_ context.Context) ([]*model.Report, error) {
+func (r *queryResolver) Reports(ctx context.Context) ([]*model.Report, error) {
 	return []*model.Report{
 		{
 			ID:      "report:1",
@@ -35,6 +35,14 @@ func (r *queryResolver) Reports(_ context.Context) ([]*model.Report, error) {
 			ID:      "report:2",
 			Content: "楽しかった",
 		},
+	}, nil
+}
+
+func (r *queryResolver) Report(ctx context.Context, id string) (*model.Report, error) {
+	// 仮実装
+	return &model.Report{
+		ID:      "report:1",
+		Content: "美味しかった",
 	}, nil
 }
 

@@ -1,3 +1,5 @@
+directive @boundary on OBJECT | FIELD_DEFINITION
+
 type Service {
   name: String!
   version: String!
@@ -7,11 +9,17 @@ type Service {
 type User {
   id: ID!
   name: String!
+  reports: [Report!]!
 }
 
 type Query {
-  # 最初のサービス登録の際にリクエストされる
   service: Service!
 
   users: [User!]!
+
+  report(id: ID!): Report @boundary
+}
+
+type Report @boundary {
+  id: ID!
 }

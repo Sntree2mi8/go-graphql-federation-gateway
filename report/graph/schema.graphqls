@@ -1,17 +1,20 @@
+directive @boundary on OBJECT | FIELD_DEFINITION
+
 type Service {
   name: String!
   version: String!
   schema: String!
 }
 
-type Report {
+type Report @boundary {
   id: ID!
   content: String!
 }
 
 type Query {
-  # 最初のサービス登録の際にリクエストされる
   service: Service!
 
   reports: [Report!]!
+
+  report(id: ID!): Report @boundary
 }

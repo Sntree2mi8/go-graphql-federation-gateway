@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -39,10 +40,12 @@ type ResolverRoot interface {
 }
 
 type DirectiveRoot struct {
+	Boundary func(ctx context.Context, obj interface{}, next graphql.Resolver) (res interface{}, err error)
 }
 
 type ComplexityRoot struct {
 	Query struct {
+		Report  func(childComplexity int, id string) int
 		Reports func(childComplexity int) int
 		Service func(childComplexity int) int
 	}
@@ -62,6 +65,7 @@ type ComplexityRoot struct {
 type QueryResolver interface {
 	Service(ctx context.Context) (*model.Service, error)
 	Reports(ctx context.Context) ([]*model.Report, error)
+	Report(ctx context.Context, id string) (*model.Report, error)
 }
 
 type executableSchema struct {
@@ -78,6 +82,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 	ec := executionContext{nil, e}
 	_ = ec
 	switch typeName + "." + field {
+
+	case "Query.report":
+		if e.complexity.Query.Report == nil {
+			break
+		}
+
+		args, err := ec.field_Query_report_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.Report(childComplexity, args["id"].(string)), true
 
 	case "Query.reports":
 		if e.complexity.Query.Reports == nil {
@@ -178,22 +194,25 @@ func (ec *executionContext) introspectType(name string) (*introspection.Type, er
 }
 
 var sources = []*ast.Source{
-	{Name: "graph/schema.graphqls", Input: `type Service {
+	{Name: "graph/schema.graphqls", Input: `directive @boundary on OBJECT | FIELD_DEFINITION
+
+type Service {
   name: String!
   version: String!
   schema: String!
 }
 
-type Report {
+type Report @boundary {
   id: ID!
   content: String!
 }
 
 type Query {
-  # 最初のサービス登録の際にリクエストされる
   service: Service!
 
   reports: [Report!]!
+
+  report(id: ID!): Report @boundary
 }`, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
@@ -214,6 +233,21 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 		}
 	}
 	args["name"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_report_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["id"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+		arg0, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -307,8 +341,28 @@ func (ec *executionContext) _Query_reports(ctx context.Context, field graphql.Co
 
 	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Reports(rctx)
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return ec.resolvers.Query().Reports(rctx)
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.Boundary == nil {
+				return nil, errors.New("directive boundary is not implemented")
+			}
+			return ec.directives.Boundary(ctx, nil, directive0)
+		}
+
+		tmp, err := directive1(rctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.([]*model.Report); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be []*github.com/Sntree2mi8/go-graphql-federation-gateway/report/graph/model.Report`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -323,6 +377,71 @@ func (ec *executionContext) _Query_reports(ctx context.Context, field graphql.Co
 	res := resTmp.([]*model.Report)
 	fc.Result = res
 	return ec.marshalNReport2ᚕᚖgithubᚗcomᚋSntree2mi8ᚋgoᚑgraphqlᚑfederationᚑgatewayᚋreportᚋgraphᚋmodelᚐReportᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Query_report(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Query_report_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		directive0 := func(rctx context.Context) (interface{}, error) {
+			ctx = rctx // use context from middleware stack in children
+			return ec.resolvers.Query().Report(rctx, args["id"].(string))
+		}
+		directive1 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.Boundary == nil {
+				return nil, errors.New("directive boundary is not implemented")
+			}
+			return ec.directives.Boundary(ctx, nil, directive0)
+		}
+		directive2 := func(ctx context.Context) (interface{}, error) {
+			if ec.directives.Boundary == nil {
+				return nil, errors.New("directive boundary is not implemented")
+			}
+			return ec.directives.Boundary(ctx, nil, directive1)
+		}
+
+		tmp, err := directive2(rctx)
+		if err != nil {
+			return nil, graphql.ErrorOnPath(ctx, err)
+		}
+		if tmp == nil {
+			return nil, nil
+		}
+		if data, ok := tmp.(*model.Report); ok {
+			return data, nil
+		}
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/Sntree2mi8/go-graphql-federation-gateway/report/graph/model.Report`, tmp)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.Report)
+	fc.Result = res
+	return ec.marshalOReport2ᚖgithubᚗcomᚋSntree2mi8ᚋgoᚑgraphqlᚑfederationᚑgatewayᚋreportᚋgraphᚋmodelᚐReport(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1744,6 +1863,17 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				}
 				return res
 			})
+		case "report":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_report(ctx, field)
+				return res
+			})
 		case "__type":
 			out.Values[i] = ec._Query___type(ctx, field)
 		case "__schema":
@@ -2470,6 +2600,13 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 		return graphql.Null
 	}
 	return graphql.MarshalBoolean(*v)
+}
+
+func (ec *executionContext) marshalOReport2ᚖgithubᚗcomᚋSntree2mi8ᚋgoᚑgraphqlᚑfederationᚑgatewayᚋreportᚋgraphᚋmodelᚐReport(ctx context.Context, sel ast.SelectionSet, v *model.Report) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Report(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOString2string(ctx context.Context, v interface{}) (string, error) {
